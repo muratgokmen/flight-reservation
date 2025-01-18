@@ -10,21 +10,19 @@ import java.util.Date;
 @Component
 public class JwtTokenUtil {
 
-    private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Güvenli key oluşturma
-    private final long expirationTime = 1000 * 60 * 60 * 10; // 10 saat
+    private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
-    // Token oluşturma
-    public String generateToken(String email) {
+    public String generateToken(String username) {
+        long expirationTime = 1000 * 60 * 60 * 10;
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
-                .signWith(secretKey) // Güvenli key ile imzalama
+                .signWith(secretKey)
                 .compact();
     }
 
-    // Token'dan email çıkarma
-    public String getEmailFromToken(String token) {
+    public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(secretKey)
                 .build()
@@ -33,7 +31,6 @@ public class JwtTokenUtil {
         return claims.getSubject();
     }
 
-    // Token doğrulama
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
@@ -42,4 +39,5 @@ public class JwtTokenUtil {
             return false;
         }
     }
+
 }

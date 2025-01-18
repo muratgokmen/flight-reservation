@@ -1,6 +1,6 @@
 package com.airline.booking.flightreservation.config;
 
-import com.airline.booking.flightreservation.service.UserService;
+import com.airline.booking.flightreservation.service.impl.CustomUserDetailService;
 import com.airline.booking.flightreservation.utility.JwtTokenUtil;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,12 +19,11 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenUtil jwtTokenUtil;
-    private final UserService userService;
+    private final CustomUserDetailService customUserDetailService;
 
-    // Constructor-based injection (yeni ve tavsiye edilen yaklaşım)
-    public JwtAuthenticationFilter(JwtTokenUtil jwtTokenUtil, UserService userService) {
+    public JwtAuthenticationFilter(JwtTokenUtil jwtTokenUtil, CustomUserDetailService customUserDetailService) {
         this.jwtTokenUtil = jwtTokenUtil;
-        this.userService = userService;
+        this.customUserDetailService = customUserDetailService;
     }
 
     @Override
@@ -33,28 +32,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        // 1) Authorization Header'ından token'ı alıyoruz
         final String authorizationHeader = request.getHeader("Authorization");
-        String token = null;
-        String email = null;
 
-        // 2) "Bearer " ile başlayan token'ı parse ediyoruz
+        String username = null;
+        String token = null;
+
         if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            token = authorizationHeader.substring(7); // "Bearer " kısmını çıkarıyoruz
-            email = jwtTokenUtil.getEmailFromToken(token);
+            token = authorizationHeader.substring(7);
+            username = jwtTokenUtil.getUsernameFromToken(token);
         }
 
-        // 3) Elde ettiğimiz email, henüz Spring Security Context'e eklenmemişse doğrulamayı yapıyoruz
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // 4) Token geçerliyse userService üzerinden kullanıcı (UserDetails) bilgilerini alıyoruz
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             if (jwtTokenUtil.validateToken(token)) {
-
-                // loadUserByUsername metodu, email üzerinden user bilgisi döner
-                // (UserService, UserDetailsService arayüzünü implemente ediyorsa)
-                UserDetails userDetails = userService.loadUserByUsername(email);
-
-                // 5) Authentication nesnesi oluşturuyoruz
+                UserDetails userDetails = customUserDetailService.loadUserByUsername(username);
                 UsernamePasswordAuthenticationToken authenticationToken =
                         new UsernamePasswordAuthenticationToken(
                                 userDetails,
@@ -62,17 +52,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 userDetails.getAuthorities()
                         );
 
-                // 6) Request detaylarını ekliyoruz (IP, session vs.)
-                authenticationToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-
-                // 7) SecurityContext'e Authentication'ı setliyoruz
+                authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             }
         }
 
-        // Filtre zincirinde ilerliyoruz
         filterChain.doFilter(request, response);
     }
 }

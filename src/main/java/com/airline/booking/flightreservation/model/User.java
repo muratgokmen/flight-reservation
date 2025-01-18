@@ -22,7 +22,7 @@ public class User {
     private String password;
 
     @Column(nullable = false)
-    private String name;
+    private String username;
 
     @Column(nullable = false)
     private String role; // ADMIN veya USER
